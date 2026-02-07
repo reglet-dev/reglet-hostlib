@@ -3,8 +3,8 @@ package host_test
 import (
 	"testing"
 
-	"github.com/reglet-dev/reglet-hostlib/host"
-	"github.com/reglet-dev/reglet-hostlib/registry"
+	"github.com/reglet-dev/reglet-host-sdk/host"
+	"github.com/reglet-dev/reglet-host-sdk/registry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"

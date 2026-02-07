@@ -1,6 +1,6 @@
 package host
 
-import hostlib "github.com/reglet-dev/reglet-hostlib"
+import hostlib "github.com/reglet-dev/reglet-host-sdk"
 
 // Option defines a functional option for configuring the Executor.
 type Option func(*Executor)

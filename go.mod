@@ -1,10 +1,11 @@
-module github.com/reglet-dev/reglet-hostlib
+module github.com/reglet-dev/reglet-host-sdk
 
 go 1.25.5
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/invopop/jsonschema v0.13.0
+	github.com/reglet-dev/reglet-abi v0.0.0-20260207004200-5ffa11ff551e
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/tetratelabs/wazero v1.11.0
@@ -24,3 +25,5 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
+
+replace github.com/reglet-dev/reglet-abi => ../reglet-abi

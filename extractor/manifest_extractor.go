@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/reglet-dev/reglet-abi/hostfunc"
-	"github.com/reglet-dev/reglet-hostlib/parser"
-	"github.com/reglet-dev/reglet-hostlib/template"
+	"github.com/reglet-dev/reglet-host-sdk/parser"
+	"github.com/reglet-dev/reglet-host-sdk/template"
 )
 
 // ManifestExtractor extracts capabilities from a plugin manifest.

@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/reglet-dev/reglet-abi/hostfunc"
-	"github.com/reglet-dev/reglet-hostlib/policy"
+	"github.com/reglet-dev/reglet-host-sdk/policy"
 )
 
 // CapabilityChecker checks if operations are allowed based on granted capabilities.

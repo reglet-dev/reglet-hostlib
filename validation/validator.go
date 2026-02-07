@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	abi "github.com/reglet-dev/reglet-abi"
-	"github.com/reglet-dev/reglet-hostlib/registry"
+	"github.com/reglet-dev/reglet-host-sdk/registry"
 	"github.com/santhosh-tekuri/jsonschema/v5"
 )
 

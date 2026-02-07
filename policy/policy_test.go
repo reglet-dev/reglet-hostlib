@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/reglet-dev/reglet-abi/hostfunc"
-	"github.com/reglet-dev/reglet-hostlib/policy"
+	"github.com/reglet-dev/reglet-host-sdk/policy"
 	"github.com/stretchr/testify/assert"
 )
 

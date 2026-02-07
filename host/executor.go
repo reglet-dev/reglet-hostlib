@@ -8,8 +8,8 @@ import (
 	"os" // Added for fmt.Fprintf to stderr
 
 	abi "github.com/reglet-dev/reglet-abi"
-	hostlib "github.com/reglet-dev/reglet-hostlib"
-	"github.com/reglet-dev/reglet-hostlib/wazero"
+	hostlib "github.com/reglet-dev/reglet-host-sdk"
+	"github.com/reglet-dev/reglet-host-sdk/wazero"
 	t_wazero "github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"

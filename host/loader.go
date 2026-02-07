@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	abi "github.com/reglet-dev/reglet-abi"
-	"github.com/reglet-dev/reglet-hostlib/parser"
-	"github.com/reglet-dev/reglet-hostlib/registry"
-	"github.com/reglet-dev/reglet-hostlib/template"
-	"github.com/reglet-dev/reglet-hostlib/validation"
+	"github.com/reglet-dev/reglet-host-sdk/parser"
+	"github.com/reglet-dev/reglet-host-sdk/registry"
+	"github.com/reglet-dev/reglet-host-sdk/template"
+	"github.com/reglet-dev/reglet-host-sdk/validation"
 )
 
 // loaderConfig holds configuration for the Loader.

@@ -3,7 +3,7 @@ package wazero
 import (
 	"testing"
 
-	hostlib "github.com/reglet-dev/reglet-hostlib"
+	hostlib "github.com/reglet-dev/reglet-host-sdk"
 )
 
 func TestDefaultAdapterConfig(t *testing.T) {

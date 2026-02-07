@@ -6,7 +6,7 @@ import (
 
 	abi "github.com/reglet-dev/reglet-abi"
 	"github.com/reglet-dev/reglet-abi/hostfunc"
-	"github.com/reglet-dev/reglet-hostlib/extractor"
+	"github.com/reglet-dev/reglet-host-sdk/extractor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

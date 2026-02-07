@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	hostlib "github.com/reglet-dev/reglet-hostlib"
+	hostlib "github.com/reglet-dev/reglet-host-sdk"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )

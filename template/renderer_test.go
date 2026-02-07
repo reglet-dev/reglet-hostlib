@@ -3,7 +3,7 @@ package template_test
 import (
 	"testing"
 
-	"github.com/reglet-dev/reglet-hostlib/template"
+	"github.com/reglet-dev/reglet-host-sdk/template"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
