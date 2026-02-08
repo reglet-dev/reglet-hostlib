@@ -10,7 +10,7 @@ import (
 func TestCapabilityChecker_CheckExec_NoGrants(t *testing.T) {
 	checker := NewCapabilityChecker(nil)
 
-	err := checker.CheckExec("unknown-plugin", hostfunc.ExecCapabilityRequest{Command: "ls"})
+	err := checker.CheckExec(context.Background(), "unknown-plugin", hostfunc.ExecCapabilityRequest{Command: "ls"})
 	if err == nil {
 		t.Error("expected error for plugin with no grants")
 	}
@@ -38,7 +38,7 @@ func TestCapabilityChecker_ExecCapability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checker.CheckExec("test-plugin", hostfunc.ExecCapabilityRequest{Command: tt.command})
+			err := checker.CheckExec(context.Background(), "test-plugin", hostfunc.ExecCapabilityRequest{Command: tt.command})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckExec() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -68,7 +68,7 @@ func TestCapabilityChecker_EnvironmentCapability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checker.CheckEnvironment("test-plugin", hostfunc.EnvironmentRequest{Variable: tt.variable})
+			err := checker.CheckEnvironment(context.Background(), "test-plugin", hostfunc.EnvironmentRequest{Variable: tt.variable})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckEnvironment() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -88,7 +88,7 @@ func TestCapabilityChecker_ToCapabilityGetter(t *testing.T) {
 		},
 	}
 	checker := NewCapabilityChecker(grants)
-	getter := checker.ToCapabilityGetter("test-plugin")
+	getter := checker.ToCapabilityGetter(context.Background(), "test-plugin")
 
 	tests := []struct {
 		name       string

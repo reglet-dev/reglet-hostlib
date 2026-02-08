@@ -2,6 +2,8 @@ package hostlib
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 )
 
 // Middleware is a function that wraps a ByteHandler to add cross-cutting behavior.
@@ -16,6 +18,43 @@ import (
 //	    }
 //	}
 type Middleware func(next ByteHandler) ByteHandler
+
+// UserAgentMiddleware returns a middleware that adds a User-Agent header to HTTP requests.
+func UserAgentMiddleware(userAgent string) Middleware {
+	return func(next ByteHandler) ByteHandler {
+		return func(ctx context.Context, payload []byte) ([]byte, error) {
+			funcName := ""
+			if hc, ok := ctx.(HostContext); ok {
+				funcName = hc.FunctionName()
+			}
+
+			if funcName == "http_request" {
+				var req map[string]any
+				if err := json.Unmarshal(payload, &req); err == nil {
+					headers, ok := req["headers"].(map[string]any)
+					if !ok {
+						headers = make(map[string]any)
+						req["headers"] = headers
+					}
+					// Only set if not already present
+					found := false
+					for k := range headers {
+						if strings.EqualFold(k, "User-Agent") {
+							found = true
+							break
+						}
+					}
+					if !found {
+						headers["User-Agent"] = userAgent
+						payload, _ = json.Marshal(req)
+					}
+				}
+			}
+
+			return next(ctx, payload)
+		}
+	}
+}
 
 // RegistryOption is a functional option for configuring a HandlerRegistry.
 type RegistryOption func(*registryBuilder)

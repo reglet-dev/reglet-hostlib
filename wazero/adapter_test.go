@@ -48,14 +48,14 @@ func TestPackUnpackPtrLen(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		packed := packPtrLen(tt.ptr, tt.length)
-		gotPtr, gotLen := unpackPtrLen(packed)
+		packed := PackPtrLen(tt.ptr, tt.length)
+		gotPtr, gotLen := UnpackPtrLen(packed)
 
 		if gotPtr != tt.ptr {
-			t.Errorf("unpackPtrLen(%x): ptr = %x, want %x", packed, gotPtr, tt.ptr)
+			t.Errorf("UnpackPtrLen(%x): ptr = %x, want %x", packed, gotPtr, tt.ptr)
 		}
 		if gotLen != tt.length {
-			t.Errorf("unpackPtrLen(%x): len = %x, want %x", packed, gotLen, tt.length)
+			t.Errorf("UnpackPtrLen(%x): len = %x, want %x", packed, gotLen, tt.length)
 		}
 	}
 }

@@ -3,14 +3,13 @@ package hostlib
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/reglet-dev/reglet-host-sdk/netutil"
 )
 
 // HTTPRequest contains parameters for an HTTP request.
@@ -76,7 +75,6 @@ func (e *HTTPError) Error() string {
 type HTTPOption func(*httpConfig)
 
 type httpConfig struct {
-	tlsConfig       *tls.Config
 	timeout         time.Duration
 	maxRedirects    int
 	maxBodySize     int64
@@ -90,7 +88,6 @@ func defaultHTTPConfig() httpConfig {
 		timeout:         30 * time.Second,
 		maxRedirects:    10,
 		followRedirects: true,
-		tlsConfig:       nil,
 		maxBodySize:     10 * 1024 * 1024, // 10MB
 	}
 }
@@ -140,114 +137,6 @@ func WithHTTPSSRFProtection(allowPrivate bool) HTTPOption {
 	}
 }
 
-// dnsPinnedEntry represents a validated and pinned DNS resolution.
-type dnsPinnedEntry struct {
-	resolvedIP string
-	timestamp  time.Time
-}
-
-// dnsPinCache caches validated DNS resolutions to prevent rebinding attacks
-// while maintaining connection pooling performance.
-type dnsPinCache struct {
-	mu      sync.RWMutex
-	entries map[string]dnsPinnedEntry
-	ttl     time.Duration
-}
-
-func newDNSPinCache() *dnsPinCache {
-	return &dnsPinCache{
-		entries: make(map[string]dnsPinnedEntry),
-		ttl:     5 * time.Minute, // Cache validated IPs for 5 minutes
-	}
-}
-
-func (c *dnsPinCache) get(hostname string, allowPrivate bool) (string, error) {
-	// Check cache first
-	c.mu.RLock()
-	entry, found := c.entries[hostname]
-	c.mu.RUnlock()
-
-	if found && time.Since(entry.timestamp) < c.ttl {
-		return entry.resolvedIP, nil
-	}
-
-	// Not in cache or expired - resolve and validate
-	var opts []NetfilterOption
-	if allowPrivate {
-		opts = append(opts, WithBlockPrivate(false), WithBlockLocalhost(false))
-	}
-	result := ValidateAddress(hostname, opts...)
-
-	if !result.Allowed {
-		return "", fmt.Errorf("SSRF protection: %s", result.Reason)
-	}
-
-	resolvedIP := result.ResolvedIP
-	if resolvedIP == "" {
-		resolvedIP = hostname
-	}
-
-	// Cache the validated resolution
-	c.mu.Lock()
-	c.entries[hostname] = dnsPinnedEntry{
-		resolvedIP: resolvedIP,
-		timestamp:  time.Now(),
-	}
-	c.mu.Unlock()
-
-	return resolvedIP, nil
-}
-
-// ssrfProtectedTransport wraps http.Transport with DNS pinning and SSRF protection
-// while preserving connection pooling for performance.
-func newSSRFProtectedTransport(allowPrivate bool) *http.Transport {
-	cache := newDNSPinCache()
-
-	transport := &http.Transport{
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          10,
-		IdleConnTimeout:       90 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ExpectContinueTimeout: 1 * time.Second,
-		// 1. Resolve DNS once per hostname and cache the validated IP
-		// 2. All subsequent dials use the cached IP (prevents DNS rebinding)
-		// 3. Transport reuses connections when possible (maintains performance)
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// Extract hostname from address
-			host, port, err := net.SplitHostPort(addr)
-			if err != nil {
-				host = addr
-				port = ""
-			}
-
-			// Get pinned IP from cache (validates on first access)
-			resolvedIP, err := cache.get(host, allowPrivate)
-			if err != nil {
-				return nil, err
-			}
-
-			// Reconstruct address with pinned IP
-			targetAddr := resolvedIP
-			if port != "" {
-				targetAddr = net.JoinHostPort(resolvedIP, port)
-			}
-
-			// Dial the pinned, validated address
-			return (&net.Dialer{}).DialContext(ctx, network, targetAddr)
-		},
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			// VerifyConnection ensures SNI matches original hostname
-			VerifyConnection: func(cs tls.ConnectionState) error {
-				// TLS SNI is already set correctly by http package
-				return nil
-			},
-		},
-	}
-
-	return transport
-}
-
 // PerformHTTPRequest performs an HTTP request.
 // This is a pure Go implementation with no WASM runtime dependencies.
 //
@@ -258,6 +147,12 @@ func newSSRFProtectedTransport(allowPrivate bool) *http.Transport {
 //	}
 func PerformHTTPRequest(ctx context.Context, req HTTPRequest, opts ...HTTPOption) HTTPResponse {
 	cfg := defaultHTTPConfig()
+
+	// Check context for default SSRF protection based on capabilities
+	if allowPrivate, ok := ctx.Value("ssrf_allow_private").(bool); ok {
+		WithHTTPSSRFProtection(allowPrivate)(&cfg)
+	}
+
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -346,17 +241,20 @@ func executeHTTPRequest(ctx context.Context, req HTTPRequest, cfg httpConfig) HT
 
 // createHTTPClient creates an HTTP client with the appropriate redirect policy.
 func createHTTPClient(cfg httpConfig) *http.Client {
-	var transport *http.Transport
+	transport := &http.Transport{
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig:       netutil.TLSConfig(),
+	}
 	if cfg.ssrfProtection {
-		transport = newSSRFProtectedTransport(cfg.allowPrivate)
-	} else {
-		transport = &http.Transport{
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          10,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
+		dialer := &netutil.SecureDialer{
+			AllowPrivateNetwork: cfg.allowPrivate,
+			Timeout:             cfg.timeout,
 		}
+		transport.DialContext = dialer.DialContext
 	}
 
 	client := &http.Client{
@@ -392,7 +290,7 @@ func handleHTTPError(err error, ctx context.Context, latency time.Duration) HTTP
 		code = "HOST_NOT_FOUND"
 	case strings.Contains(err.Error(), "connection refused"):
 		code = "CONNECTION_REFUSED"
-	case strings.Contains(err.Error(), "SSRF protection"):
+	case netutil.IsSSRFBlockedError(err):
 		code = "SSRF_BLOCKED"
 	}
 
@@ -408,9 +306,21 @@ func handleHTTPError(err error, ctx context.Context, latency time.Duration) HTTP
 // readHTTPResponse reads and returns the HTTP response body with size limiting.
 func readHTTPResponse(resp *http.Response, latency time.Duration, maxBodySize int64) HTTPResponse {
 	// Read response body with size limit
-	bodyReader := io.LimitReader(resp.Body, maxBodySize+1)
-	respBody, err := io.ReadAll(bodyReader)
+	limitedReader := netutil.NewLimitedReader(resp.Body, maxBodySize)
+	respBody, err := io.ReadAll(limitedReader)
 	if err != nil {
+		truncated := netutil.IsSizeLimitExceededError(err)
+		if truncated {
+			// Body was truncated at the limit
+			return HTTPResponse{
+				StatusCode:    resp.StatusCode,
+				Headers:       resp.Header,
+				Body:          respBody,
+				BodyTruncated: true,
+				LatencyMs:     latency.Milliseconds(),
+				Proto:         resp.Proto,
+			}
+		}
 		return HTTPResponse{
 			StatusCode: resp.StatusCode,
 			Headers:    resp.Header,
@@ -422,18 +332,11 @@ func readHTTPResponse(resp *http.Response, latency time.Duration, maxBodySize in
 		}
 	}
 
-	truncated := false
-	if int64(len(respBody)) > maxBodySize {
-		respBody = respBody[:maxBodySize]
-		truncated = true
-	}
-
 	return HTTPResponse{
-		StatusCode:    resp.StatusCode,
-		Headers:       resp.Header,
-		Body:          respBody,
-		BodyTruncated: truncated,
-		LatencyMs:     latency.Milliseconds(),
-		Proto:         resp.Proto,
+		StatusCode: resp.StatusCode,
+		Headers:    resp.Header,
+		Body:       respBody,
+		LatencyMs:  latency.Milliseconds(),
+		Proto:      resp.Proto,
 	}
 }

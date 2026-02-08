@@ -90,7 +90,6 @@ func TestDefaultSMTPConfig(t *testing.T) {
 	cfg := defaultSMTPConfig()
 
 	assert.Equal(t, 30*time.Second, cfg.timeout)
-	assert.Nil(t, cfg.tlsConfig)
 }
 
 func TestSMTPOptions(t *testing.T) {

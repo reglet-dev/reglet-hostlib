@@ -93,7 +93,6 @@ func TestDefaultHTTPConfig(t *testing.T) {
 	assert.Equal(t, 30*time.Second, cfg.timeout)
 	assert.Equal(t, 10, cfg.maxRedirects)
 	assert.True(t, cfg.followRedirects)
-	assert.Nil(t, cfg.tlsConfig)
 	assert.Equal(t, int64(10*1024*1024), cfg.maxBodySize)
 }
 

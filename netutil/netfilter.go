@@ -1,4 +1,4 @@
-package hostlib
+package netutil
 
 import (
 	"net"
@@ -113,7 +113,7 @@ func WithBlockedPorts(ports ...int) NetfilterOption {
 //
 // Example usage:
 //
-//	result := hostfuncs.ValidateAddress("example.com:443")
+//	result := netutil.ValidateAddress("example.com:443")
 //	if !result.Allowed {
 //	    return fmt.Errorf("blocked: %s", result.Reason)
 //	}

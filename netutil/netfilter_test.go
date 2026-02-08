@@ -1,4 +1,4 @@
-package hostlib
+package netutil
 
 import (
 	"net"
@@ -271,7 +271,7 @@ func TestValidateIP_AllowlistCIDR(t *testing.T) {
 	cfg.allowlist = []string{"192.0.2.0/24"}
 	cfg.blockPrivate = false // Don't block private for this test
 
-	result := validateIP(parseIP("192.0.2.100"), cfg)
+	result := validateIP(net.ParseIP("192.0.2.100"), cfg)
 	assert.True(t, result.Allowed)
 }
 
@@ -279,11 +279,6 @@ func TestValidateIP_BlocklistCIDR(t *testing.T) {
 	cfg := defaultNetfilterConfig()
 	cfg.blocklist = []string{"8.8.8.0/24"}
 
-	result := validateIP(parseIP("8.8.8.8"), cfg)
+	result := validateIP(net.ParseIP("8.8.8.8"), cfg)
 	assert.False(t, result.Allowed)
-}
-
-// Helper to parse IP for testing
-func parseIP(s string) net.IP {
-	return net.ParseIP(s)
 }

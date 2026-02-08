@@ -8,6 +8,8 @@ import (
 	"net/smtp"
 	"strings"
 	"time"
+
+	"github.com/reglet-dev/reglet-host-sdk/netutil"
 )
 
 // SMTPConnectRequest contains parameters for an SMTP connection test.
@@ -116,6 +118,12 @@ func WithSMTPSSRFProtection(allowPrivate bool) SMTPOption {
 //	}
 func PerformSMTPConnect(ctx context.Context, req SMTPConnectRequest, opts ...SMTPOption) SMTPConnectResponse {
 	cfg := defaultSMTPConfig()
+
+	// Check context for default SSRF protection based on capabilities
+	if allowPrivate, ok := ctx.Value("ssrf_allow_private").(bool); ok {
+		WithSMTPSSRFProtection(allowPrivate)(&cfg)
+	}
+
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -150,11 +158,11 @@ func PerformSMTPConnect(ctx context.Context, req SMTPConnectRequest, opts ...SMT
 	resolvedHost := req.Host
 	if cfg.ssrfProtection {
 		addr := fmt.Sprintf("%s:%d", req.Host, req.Port)
-		var opts []NetfilterOption
+		var opts []netutil.NetfilterOption
 		if cfg.allowPrivate {
-			opts = append(opts, WithBlockPrivate(false), WithBlockLocalhost(false))
+			opts = append(opts, netutil.WithBlockPrivate(false), netutil.WithBlockLocalhost(false))
 		}
-		result := ValidateAddress(addr, opts...)
+		result := netutil.ValidateAddress(addr, opts...)
 
 		if !result.Allowed {
 			return SMTPConnectResponse{

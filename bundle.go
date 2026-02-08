@@ -2,6 +2,8 @@ package hostlib
 
 import (
 	"context"
+
+	"github.com/reglet-dev/reglet-host-sdk/netutil"
 )
 
 // HostFuncBundle is a pre-configured set of related host functions.
@@ -82,8 +84,12 @@ func NetfilterBundle() HostFuncBundle {
 	return &staticBundle{
 		handlers: map[string]ByteHandler{
 			"ssrf_check": NewJSONHandler(func(ctx context.Context, req SSRFCheckRequest) SSRFCheckResponse {
-				result := ValidateAddress(req.Address)
-				return SSRFCheckResponse(result) // Type conversion since fields match
+				result := netutil.ValidateAddress(req.Address)
+				return SSRFCheckResponse{
+					Reason:     result.Reason,
+					ResolvedIP: result.ResolvedIP,
+					Allowed:    result.Allowed,
+				}
 			}),
 		},
 	}

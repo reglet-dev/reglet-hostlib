@@ -5,7 +5,9 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
+	"github.com/reglet-dev/reglet-abi/hostfunc"
 	hostlib "github.com/reglet-dev/reglet-host-sdk"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -105,7 +107,7 @@ func RegisterWithRuntime(ctx context.Context, runtime wazero.Runtime, registry *
 		funcName := name // capture for closure
 		builder.NewFunctionBuilder().
 			WithGoModuleFunction(api.GoModuleFunc(func(ctx context.Context, mod api.Module, stack []uint64) {
-				handleRegistryCall(ctx, mod, stack, registry, funcName, cfg.MaxRequestSize)
+				HandleRegistryCall(ctx, mod, stack, registry, funcName, cfg.MaxRequestSize)
 			}), []api.ValueType{api.ValueTypeI64}, []api.ValueType{api.ValueTypeI64}).
 			Export(funcName)
 	}
@@ -122,17 +124,17 @@ func RegisterWithRuntime(ctx context.Context, runtime wazero.Runtime, registry *
 	return err
 }
 
-// handleRegistryCall handles a host function call from WASM.
+// HandleRegistryCall handles a host function call from WASM.
 // It reads the request from guest memory, invokes the handler, and writes the response.
-func handleRegistryCall(ctx context.Context, mod api.Module, stack []uint64, registry *hostlib.HandlerRegistry, name string, maxRequestSize uint32) {
+func HandleRegistryCall(ctx context.Context, mod api.Module, stack []uint64, registry *hostlib.HandlerRegistry, name string, maxRequestSize uint32) {
 	// Unpack the request pointer and length
-	ptr, length := unpackPtrLen(stack[0])
+	ptr, length := UnpackPtrLen(stack[0])
 
 	// Validate request size
 	if length > maxRequestSize {
 		errMsg := fmt.Sprintf("request size %d exceeds maximum %d bytes", length, maxRequestSize)
 		slog.ErrorContext(ctx, "wazero: "+errMsg, "function", name)
-		stack[0] = writeErrorResponse(ctx, mod, hostlib.NewValidationError(errMsg))
+		stack[0] = WriteErrorResponse(ctx, mod, hostlib.NewValidationError(errMsg))
 		return
 	}
 
@@ -141,7 +143,7 @@ func handleRegistryCall(ctx context.Context, mod api.Module, stack []uint64, reg
 	if !ok {
 		errMsg := "failed to read request from guest memory"
 		slog.ErrorContext(ctx, "wazero: "+errMsg, "function", name)
-		stack[0] = writeErrorResponse(ctx, mod, hostlib.NewInternalError(errMsg))
+		stack[0] = WriteErrorResponse(ctx, mod, hostlib.NewInternalError(errMsg))
 		return
 	}
 
@@ -149,17 +151,17 @@ func handleRegistryCall(ctx context.Context, mod api.Module, stack []uint64, reg
 	responseBytes, err := registry.Invoke(ctx, name, requestBytes)
 	if err != nil {
 		slog.ErrorContext(ctx, "wazero: handler invocation failed", "function", name, "error", err)
-		stack[0] = writeErrorResponse(ctx, mod, hostlib.NewInternalError(err.Error()))
+		stack[0] = WriteErrorResponse(ctx, mod, hostlib.NewInternalError(err.Error()))
 		return
 	}
 
 	// Write response to guest memory
-	stack[0] = writeResponse(ctx, mod, responseBytes)
+	stack[0] = WriteResponse(ctx, mod, responseBytes)
 }
 
-// writeResponse allocates memory in the guest and writes the response bytes.
+// WriteResponse allocates memory in the guest and writes the response bytes.
 // Returns packed ptr+len or 0 on failure.
-func writeResponse(ctx context.Context, mod api.Module, data []byte) uint64 {
+func WriteResponse(ctx context.Context, mod api.Module, data []byte) uint64 {
 	// Call the guest's allocate function
 	allocateFn := mod.ExportedFunction("allocate")
 	if allocateFn == nil {
@@ -180,23 +182,45 @@ func writeResponse(ctx context.Context, mod api.Module, data []byte) uint64 {
 		return 0
 	}
 
-	return packPtrLen(ptr, uint32(len(data))) //nolint:gosec // G115: Data length is bounded by config
+	return PackPtrLen(ptr, uint32(len(data))) //nolint:gosec // G115: Data length is bounded by config
 }
 
-// writeErrorResponse writes an error response to guest memory.
-func writeErrorResponse(ctx context.Context, mod api.Module, errResp hostlib.ErrorResponse) uint64 {
-	return writeResponse(ctx, mod, errResp.ToJSON())
+// WriteErrorResponse writes an error response to guest memory.
+func WriteErrorResponse(ctx context.Context, mod api.Module, errResp hostlib.ErrorResponse) uint64 {
+	return WriteResponse(ctx, mod, errResp.ToJSON())
 }
 
-// packPtrLen packs a pointer and length into a single i64.
+// PackPtrLen packs a pointer and length into a single i64.
 // Upper 32 bits: pointer, lower 32 bits: length.
-func packPtrLen(ptr, length uint32) uint64 {
+func PackPtrLen(ptr, length uint32) uint64 {
 	return (uint64(ptr) << 32) | uint64(length)
 }
 
-// unpackPtrLen unpacks a pointer and length from a packed i64.
-func unpackPtrLen(packed uint64) (ptr, length uint32) {
+// UnpackPtrLen unpacks a pointer and length from a packed i64.
+func UnpackPtrLen(packed uint64) (ptr, length uint32) {
 	ptr = uint32(packed >> 32)           //nolint:gosec // G115: Packed format stores 32-bit values
 	length = uint32(packed & 0xFFFFFFFF) //nolint:gosec // G115: Packed format stores 32-bit values
 	return ptr, length
+}
+
+// CreateContextFromWire creates a new context from the wire format.
+func CreateContextFromWire(parentCtx context.Context, wireCtx hostfunc.ContextWire) (context.Context, context.CancelFunc) {
+	if wireCtx.Canceled {
+		slog.Warn("wazero: received already canceled context from plugin")
+		ctx, cancel := context.WithCancel(parentCtx)
+		cancel() // Immediately cancel
+		return ctx, cancel
+	}
+
+	// Apply deadline if present
+	if wireCtx.Deadline != nil && !wireCtx.Deadline.IsZero() {
+		return context.WithDeadline(parentCtx, *wireCtx.Deadline)
+	}
+
+	// Apply timeout if present
+	if wireCtx.TimeoutMs > 0 {
+		return context.WithTimeout(parentCtx, time.Duration(wireCtx.TimeoutMs)*time.Millisecond)
+	}
+
+	return context.WithCancel(parentCtx) // Default to cancellable context
 }

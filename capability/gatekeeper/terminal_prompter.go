@@ -118,6 +118,90 @@ func (p *TerminalPrompter) promptForCapabilityString(desc string, isBroad bool) 
 	}
 }
 
+// PromptForProfileTrustWithGrantSet prompts the user to trust a remote profile source.
+// Displays the profile URL and required capabilities for informed decision.
+func (p *TerminalPrompter) PromptForProfileTrustWithGrantSet(
+	url string,
+	requiredCaps map[string]*hostfunc.GrantSet,
+) (bool, error) {
+	// Build capability description
+	var capDescriptions []string
+	for plugin, gs := range requiredCaps {
+		descs := p.describeGrantSet(gs)
+		for _, desc := range descs {
+			capDescriptions = append(capDescriptions, fmt.Sprintf("[%s] %s", plugin, desc))
+		}
+	}
+
+	// Display warning
+	fmt.Fprintf(os.Stderr, "\n")
+	fmt.Fprintf(os.Stderr, "\033[1;33mRemote Profile Trust Required\033[0m\n\n")
+	fmt.Fprintf(os.Stderr, "  Source: %s\n\n", url)
+
+	if len(capDescriptions) > 0 {
+		fmt.Fprintf(os.Stderr, "  Required capabilities:\n")
+		for _, desc := range capDescriptions {
+			fmt.Fprintf(os.Stderr, "    - %s\n", desc)
+		}
+		fmt.Fprintf(os.Stderr, "\n")
+	}
+
+	// Prompt for trust decision
+	const (
+		OptionYes = "Yes, trust this source for this session"
+		OptionNo  = "No, do not run this profile"
+	)
+
+	var selection string
+
+	err := huh.NewSelect[string]().
+		Title("Trust Remote Profile?").
+		Description("This profile is from an untrusted source.").
+		Options(
+			huh.NewOption(OptionYes, OptionYes),
+			huh.NewOption(OptionNo, OptionNo),
+		).
+		Value(&selection).
+		Run()
+	if err != nil {
+		return false, err
+	}
+
+	return selection == OptionYes, nil
+}
+
+// describeGrantSet returns human-readable descriptions of a GrantSet.
+func (p *TerminalPrompter) describeGrantSet(gs *hostfunc.GrantSet) []string {
+	var descriptions []string
+
+	if gs.Network != nil {
+		for _, rule := range gs.Network.Rules {
+			descriptions = append(descriptions, fmt.Sprintf("Network: hosts=%v, ports=%v", rule.Hosts, rule.Ports))
+		}
+	}
+
+	if gs.FS != nil {
+		for _, rule := range gs.FS.Rules {
+			if len(rule.Read) > 0 {
+				descriptions = append(descriptions, fmt.Sprintf("Read files: %v", rule.Read))
+			}
+			if len(rule.Write) > 0 {
+				descriptions = append(descriptions, fmt.Sprintf("Write files: %v", rule.Write))
+			}
+		}
+	}
+
+	if gs.Env != nil && len(gs.Env.Variables) > 0 {
+		descriptions = append(descriptions, fmt.Sprintf("Environment variables: %v", gs.Env.Variables))
+	}
+
+	if gs.Exec != nil && len(gs.Exec.Commands) > 0 {
+		descriptions = append(descriptions, fmt.Sprintf("Execute commands: %v", gs.Exec.Commands))
+	}
+
+	return descriptions
+}
+
 // FormatNonInteractiveError creates a helpful error message for non-interactive mode.
 func (p *TerminalPrompter) FormatNonInteractiveError(missing *hostfunc.GrantSet) error {
 	var msg strings.Builder

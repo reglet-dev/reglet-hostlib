@@ -7,6 +7,8 @@ import (
 	"net"
 	"strings"
 	"time"
+
+	"github.com/reglet-dev/reglet-host-sdk/netutil"
 )
 
 // TCPConnectRequest contains parameters for a TCP connection test.
@@ -117,6 +119,12 @@ func WithTCPSSRFProtection(allowPrivate bool) TCPOption {
 // PerformTCPConnect tests TCP connectivity to the specified host and port.
 func PerformTCPConnect(ctx context.Context, req TCPConnectRequest, opts ...TCPOption) TCPConnectResponse {
 	cfg := defaultTCPConfig()
+
+	// Check context for default SSRF protection based on capabilities
+	if allowPrivate, ok := ctx.Value("ssrf_allow_private").(bool); ok {
+		WithTCPSSRFProtection(allowPrivate)(&cfg)
+	}
+
 	for _, opt := range opts {
 		opt(&cfg)
 	}
@@ -168,11 +176,11 @@ func validateTCPRequest(req TCPConnectRequest) *TCPError {
 
 func resolveAndValidateTCP(req TCPConnectRequest, cfg tcpConfig) (string, *TCPError) {
 	addr := fmt.Sprintf("%s:%d", req.Host, req.Port)
-	var opts []NetfilterOption
+	var opts []netutil.NetfilterOption
 	if cfg.allowPrivate {
-		opts = append(opts, WithBlockPrivate(false), WithBlockLocalhost(false))
+		opts = append(opts, netutil.WithBlockPrivate(false), netutil.WithBlockLocalhost(false))
 	}
-	result := ValidateAddress(addr, opts...)
+	result := netutil.ValidateAddress(addr, opts...)
 
 	if !result.Allowed {
 		return "", &TCPError{Code: "SSRF_BLOCKED", Message: result.Reason}
