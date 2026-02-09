@@ -4,6 +4,7 @@ package oci
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -14,8 +15,8 @@ import (
 	"oras.land/oras-go/v2/registry/remote/auth"
 
 	"github.com/reglet-dev/reglet-host-sdk/plugin/dto"
-	"github.com/reglet-dev/reglet-host-sdk/plugin/ports"
 	"github.com/reglet-dev/reglet-host-sdk/plugin/entities"
+	"github.com/reglet-dev/reglet-host-sdk/plugin/ports"
 	"github.com/reglet-dev/reglet-host-sdk/plugin/values"
 )
 
@@ -34,7 +35,7 @@ func NewOCIRegistryAdapter(auth ports.AuthProvider) *OCIRegistryAdapter {
 // Pull downloads a plugin from OCI registry.
 func (a *OCIRegistryAdapter) Pull(ctx context.Context, ref values.PluginReference) (*dto.PluginArtifactDTO, error) {
 	// Create repository client
-	repo, err := remote.NewRepository(ref.Registry() + "/" + ref.String())
+	repo, err := remote.NewRepository(ref.String())
 	if err != nil {
 		return nil, fmt.Errorf("create repository: %w", err)
 	}
@@ -142,13 +143,26 @@ func (a *OCIRegistryAdapter) Resolve(ctx context.Context, ref values.PluginRefer
 
 // Helper methods
 func (a *OCIRegistryAdapter) parseManifest(data []byte) (*ocispec.Manifest, error) {
-	// Parse OCI manifest JSON
-	return nil, nil
+	var manifest ocispec.Manifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("invalid manifest JSON: %w", err)
+	}
+	return &manifest, nil
 }
 
 func (a *OCIRegistryAdapter) parseMetadata(data []byte) (values.PluginMetadata, error) {
-	// Parse plugin metadata JSON
-	return values.PluginMetadata{}, nil
+	var meta struct {
+		Name         string   `json:"name"`
+		Version      string   `json:"version"`
+		Description  string   `json:"description"`
+		Capabilities []string `json:"capabilities"`
+	}
+
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return values.PluginMetadata{}, fmt.Errorf("invalid config JSON: %w", err)
+	}
+
+	return values.NewPluginMetadata(meta.Name, meta.Version, meta.Description, meta.Capabilities), nil
 }
 
 func (a *OCIRegistryAdapter) findWASMLayer(manifest *ocispec.Manifest) (ocispec.Descriptor, error) {

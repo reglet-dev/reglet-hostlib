@@ -10,6 +10,7 @@ import (
 	"github.com/reglet-dev/reglet-host-sdk/plugin/entities"
 	"github.com/reglet-dev/reglet-host-sdk/plugin/ports"
 	"github.com/reglet-dev/reglet-host-sdk/plugin/services"
+	"github.com/reglet-dev/reglet-host-sdk/plugin/values"
 )
 
 // PluginService orchestrates plugin management use cases.
@@ -111,6 +112,26 @@ func (s *PluginService) LoadPlugin(ctx context.Context, spec *dto.PluginSpecDTO)
 	}
 
 	return wasmPath, nil
+}
+
+// Pull ensures a plugin is in the local repository by resolving it (which may trigger a pull).
+// Returns the plugin metadata.
+func (s *PluginService) Pull(ctx context.Context, ref values.PluginReference) (*entities.Plugin, error) {
+	// Resolve plugin (Chain of Responsibility)
+	plugin, err := s.resolver.Resolve(ctx, ref)
+	if err != nil {
+		return nil, fmt.Errorf("plugin pull/resolution failed: %w", err)
+	}
+
+	// Verify signature if required by policy
+	if s.integrityService.ShouldVerifySignature() {
+		_, err := s.integrityVerifier.VerifySignature(ctx, ref)
+		if err != nil {
+			return nil, fmt.Errorf("signature verification failed: %w", err)
+		}
+	}
+
+	return plugin, nil
 }
 
 // PublishPlugin uploads a plugin to a registry.
