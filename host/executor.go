@@ -20,6 +20,7 @@ type Executor struct {
 	runtime  t_wazero.Runtime
 	registry *hostlib.HandlerRegistry
 	verbose  bool
+	cache    t_wazero.CompilationCache
 }
 
 // NewExecutor creates a new executor with the given options.
@@ -38,7 +39,12 @@ func NewExecutor(ctx context.Context, opts ...Option) (*Executor, error) {
 		e.registry = reg
 	}
 
-	rt := t_wazero.NewRuntime(ctx)
+	config := t_wazero.NewRuntimeConfig()
+	if e.cache != nil {
+		config = config.WithCompilationCache(e.cache)
+	}
+
+	rt := t_wazero.NewRuntimeWithConfig(ctx, config)
 	wasi_snapshot_preview1.MustInstantiate(ctx, rt)
 	e.runtime = rt
 
