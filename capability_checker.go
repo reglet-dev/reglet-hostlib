@@ -83,6 +83,14 @@ func NewCapabilityChecker(caps map[string]*hostfunc.GrantSet, opts ...Capability
 	}
 }
 
+// RegisterGrants adds or updates granted capabilities for a specific plugin.
+func (c *CapabilityChecker) RegisterGrants(pluginName string, grants *hostfunc.GrantSet) {
+	if c.grantedCapabilities == nil {
+		c.grantedCapabilities = make(map[string]*hostfunc.GrantSet)
+	}
+	c.grantedCapabilities[pluginName] = grants
+}
+
 // CheckNetwork performs typed network capability check.
 func (c *CapabilityChecker) CheckNetwork(ctx context.Context, pluginName string, req hostfunc.NetworkRequest) error {
 	grants, ok := c.grantedCapabilities[pluginName]

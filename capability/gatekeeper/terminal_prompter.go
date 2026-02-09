@@ -29,7 +29,7 @@ func (p *TerminalPrompter) IsInteractive() bool {
 
 // PromptForCapability asks the user to grant a capability.
 func (p *TerminalPrompter) PromptForCapability(req capability.Request) (granted bool, always bool, err error) {
-	return p.promptForCapabilityString(req.Description, req.IsBroad)
+	return p.promptForCapabilityString(req.PluginName, req.Description, req.IsBroad)
 }
 
 // PromptForCapabilities prompts for multiple capabilities at once.
@@ -77,10 +77,14 @@ func (p *TerminalPrompter) PromptForCapabilities(reqs []capability.Request) (*ho
 }
 
 // promptForCapabilityString asks the user whether to grant a capability described by a string.
-func (p *TerminalPrompter) promptForCapabilityString(desc string, isBroad bool) (granted bool, always bool, err error) {
+func (p *TerminalPrompter) promptForCapabilityString(pluginName, desc string, isBroad bool) (granted bool, always bool, err error) {
 	if isBroad {
 		fmt.Fprintf(os.Stderr, "\n")
-		fmt.Fprintf(os.Stderr, "\033[1;33mSecurity Warning: Broad Permission Requested\033[0m\n\n")
+		header := "Security Warning: Broad Permission Requested"
+		if pluginName != "" {
+			header = fmt.Sprintf("Security Warning: Plugin %q Requested Broad Permissions", pluginName)
+		}
+		fmt.Fprintf(os.Stderr, "\033[1;33m%s\033[0m\n\n", header)
 		fmt.Fprintf(os.Stderr, "  %s\n", desc)
 		fmt.Fprintf(os.Stderr, "  Recommendation: Review if this broad access is necessary.\n")
 		fmt.Fprintf(os.Stderr, "\n")
@@ -94,8 +98,13 @@ func (p *TerminalPrompter) promptForCapabilityString(desc string, isBroad bool) 
 
 	var selection string
 
+	title := "Plugin Requesting Permission"
+	if pluginName != "" {
+		title = fmt.Sprintf("Plugin %q Requesting Permission", pluginName)
+	}
+
 	err = huh.NewSelect[string]().
-		Title("Plugin Requesting Permission").
+		Title(title).
 		Description(desc).
 		Options(
 			huh.NewOption(OptionYes, OptionYes),

@@ -122,6 +122,15 @@ func (g *Gatekeeper) GrantCapabilities(
 	return newGrants, nil
 }
 
+func (g *Gatekeeper) getPluginName(info map[string]capability.CapabilityInfo) string {
+	if len(info) == 1 {
+		for _, v := range info {
+			return v.PluginName
+		}
+	}
+	return ""
+}
+
 // promptForCapabilities prompts the user for each type of missing capability.
 func (g *Gatekeeper) promptForCapabilities(
 	missing *hostfunc.GrantSet,
@@ -129,21 +138,22 @@ func (g *Gatekeeper) promptForCapabilities(
 	newGrants *hostfunc.GrantSet,
 	shouldSave *bool,
 ) error {
-	if err := g.promptForNetwork(missing, capabilityInfo, newGrants, shouldSave); err != nil {
+	pluginName := g.getPluginName(capabilityInfo)
+	if err := g.promptForNetwork(missing, pluginName, newGrants, shouldSave); err != nil {
 		return err
 	}
-	if err := g.promptForFS(missing, capabilityInfo, newGrants, shouldSave); err != nil {
+	if err := g.promptForFS(missing, pluginName, newGrants, shouldSave); err != nil {
 		return err
 	}
-	if err := g.promptForEnv(missing, capabilityInfo, newGrants, shouldSave); err != nil {
+	if err := g.promptForEnv(missing, pluginName, newGrants, shouldSave); err != nil {
 		return err
 	}
-	return g.promptForExec(missing, capabilityInfo, newGrants, shouldSave)
+	return g.promptForExec(missing, pluginName, newGrants, shouldSave)
 }
 
 func (g *Gatekeeper) promptForNetwork(
 	missing *hostfunc.GrantSet,
-	capabilityInfo map[string]capability.CapabilityInfo,
+	pluginName string,
 	newGrants *hostfunc.GrantSet,
 	shouldSave *bool,
 ) error {
@@ -155,6 +165,7 @@ func (g *Gatekeeper) promptForNetwork(
 		gs := &hostfunc.GrantSet{Network: &hostfunc.NetworkCapability{Rules: []hostfunc.NetworkRule{rule}}}
 
 		req := capability.Request{
+			PluginName:  pluginName,
 			Kind:        "network",
 			Rule:        rule,
 			Description: fmt.Sprintf("network %v:%v", rule.Hosts, rule.Ports),
@@ -184,7 +195,7 @@ func (g *Gatekeeper) promptForNetwork(
 
 func (g *Gatekeeper) promptForFS(
 	missing *hostfunc.GrantSet,
-	capabilityInfo map[string]capability.CapabilityInfo,
+	pluginName string,
 	newGrants *hostfunc.GrantSet,
 	shouldSave *bool,
 ) error {
@@ -201,6 +212,7 @@ func (g *Gatekeeper) promptForFS(
 			}
 
 			req := capability.Request{
+				PluginName:  pluginName,
 				Kind:        "fs",
 				Rule:        hostfunc.FileSystemRule{Read: []string{path}},
 				Description: fmt.Sprintf("fs read:%s", path),
@@ -234,6 +246,7 @@ func (g *Gatekeeper) promptForFS(
 			}
 
 			req := capability.Request{
+				PluginName:  pluginName,
 				Kind:        "fs",
 				Rule:        hostfunc.FileSystemRule{Write: []string{path}},
 				Description: fmt.Sprintf("fs write:%s", path),
@@ -264,7 +277,7 @@ func (g *Gatekeeper) promptForFS(
 
 func (g *Gatekeeper) promptForEnv(
 	missing *hostfunc.GrantSet,
-	capabilityInfo map[string]capability.CapabilityInfo,
+	pluginName string,
 	newGrants *hostfunc.GrantSet,
 	shouldSave *bool,
 ) error {
@@ -276,6 +289,7 @@ func (g *Gatekeeper) promptForEnv(
 		gs := &hostfunc.GrantSet{Env: &hostfunc.EnvironmentCapability{Variables: []string{v}}}
 
 		req := capability.Request{
+			PluginName:  pluginName,
 			Kind:        "env",
 			Rule:        v,
 			Description: fmt.Sprintf("env %s", v),
@@ -305,7 +319,7 @@ func (g *Gatekeeper) promptForEnv(
 
 func (g *Gatekeeper) promptForExec(
 	missing *hostfunc.GrantSet,
-	capabilityInfo map[string]capability.CapabilityInfo,
+	pluginName string,
 	newGrants *hostfunc.GrantSet,
 	shouldSave *bool,
 ) error {
@@ -317,6 +331,7 @@ func (g *Gatekeeper) promptForExec(
 		gs := &hostfunc.GrantSet{Exec: &hostfunc.ExecCapability{Commands: []string{cmd}}}
 
 		req := capability.Request{
+			PluginName:  pluginName,
 			Kind:        "exec",
 			Rule:        cmd,
 			Description: fmt.Sprintf("exec %s", cmd),

@@ -13,6 +13,7 @@ type CapabilityInfo struct {
 
 // Request represents a single capability request for prompting constraints.
 type Request struct {
+	PluginName  string
 	Rule        interface{}
 	Kind        string
 	Description string

@@ -35,18 +35,32 @@ func (e *FileExtractor) Extract(config map[string]interface{}) *hostfunc.GrantSe
 type CommandExtractor struct{}
 
 func (e *CommandExtractor) Extract(config map[string]interface{}) *hostfunc.GrantSet {
-	// - command plugin: "command" or "cmd"
-	cmd, ok := config["command"].(string)
-	if !ok {
-		cmd, ok = config["cmd"].(string)
+	var cmds []string
+
+	// Direct command
+	if cmd, ok := config["command"].(string); ok && cmd != "" {
+		cmds = append(cmds, cmd)
+	} else if cmd, ok := config["cmd"].(string); ok && cmd != "" {
+		cmds = append(cmds, cmd)
 	}
-	if !ok || cmd == "" {
+
+	// Shell command
+	if run, ok := config["run"].(string); ok && run != "" {
+		cmds = append(cmds, "/bin/sh")
+		// Extract the first word as an approximation of the command being run via sh
+		parts := strings.Fields(run)
+		if len(parts) > 0 {
+			cmds = append(cmds, parts[0])
+		}
+	}
+
+	if len(cmds) == 0 {
 		return nil
 	}
 
 	return &hostfunc.GrantSet{
 		Exec: &hostfunc.ExecCapability{
-			Commands: []string{cmd},
+			Commands: cmds,
 		},
 	}
 }
