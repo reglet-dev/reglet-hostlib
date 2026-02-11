@@ -9,7 +9,7 @@ require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/invopop/jsonschema v0.13.0
 	github.com/opencontainers/image-spec v1.1.1
-	github.com/reglet-dev/reglet-abi v0.1.0
+	github.com/reglet-dev/reglet-abi v0.1.1
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/sigstore/cosign/v2 v2.6.2
 	github.com/stretchr/testify v1.11.1
